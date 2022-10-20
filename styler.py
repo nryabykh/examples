@@ -1,3 +1,13 @@
+"""
+Some styling functions for using in AgGrid table within Streamlit application:
+- format values with locales;
+- format and rename column headers;
+- round values;
+- highlight cells which meet specified condition;
+- adjust table options: selection, height, theme, etc.
+"""
+
+
 import dataclasses
 import streamlit as st
 
@@ -104,10 +114,3 @@ def draw_grid(
         theme=theme if theme is not None else get_current_streamlit_theme(),
         key=key
     )
-
-
-def print_docs(path, header):
-    with st.expander(header):
-        with open(f".{path}", "r", encoding="utf-8") as f:
-            lines = f.readlines()
-            st.markdown("".join(lines))

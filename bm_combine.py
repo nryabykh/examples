@@ -1,3 +1,12 @@
+"""
+Simple time series clustering based on Pearson correlation:
+1. Calculate pair-wise Pearson correlation coefficients between time series.
+2. Apply clustering algorithm (DBSCAN) using correlation matrix as distance matrix.
+3. MDS is used for visualization of time series as points on 2D-plot.
+
+TODO. Add sample data as csv.
+"""
+
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -10,12 +19,11 @@ from sklearn.manifold import MDS
 from streamlit.delta_generator import DeltaGenerator
 
 import defaults
-from common import styler
+import styler
 from common.multiline_chart import create_multiline_chart
 from data import get_conf, otp, data
 import streamlit as st
 import altair as alt
-from pages.localization import _
 
 data_path = get_conf("config.yaml")["data"]
 
@@ -66,16 +74,16 @@ def set_btn_clicked(btn_name: str):
 
 def show_caption() -> None:
     st.caption(
-        _("Some of business metrics might be very similar to each other. In this case it's better to reduce their "
-          "number by combining similar metrics to the new one. It will likely accelerate models fitting and "
-          "prediction. For the reducing number of metrics, we could, for example, group similar metrics and keep only "
-          "one metric per cluster. ")
+        "Some of business metrics might be very similar to each other. In this case it's better to reduce their "
+        "number by combining similar metrics to the new one. It will likely accelerate models fitting and "
+        "prediction. For the reducing number of metrics, we could, for example, group similar metrics and keep only "
+        "one metric per cluster. "
     )
 
 
 def get_options() -> DataOptions:
     bm_selected = st.multiselect(
-        label=_('Select metrics'),
+        label='Select metrics',
         options=data.get_bm_list(),
         default=data.get_bm_list(),
     )
@@ -85,18 +93,18 @@ def get_options() -> DataOptions:
     start_date = dates[0] if dates else None
 
     selected_start_date = col_date.date_input(
-        label=_('BM history started at'),
+        label='BM history started at',
         value=start_date,
     )
 
-    help_text = _("DBSCAN algorithm is used for clustering. You can change the '_epsilon_' parameter of DBSCAN with "
-                  "this slider. You could consider '_epsilon_' as maximum allowed distance between the objects of the"
-                  "same cluster. Mutual Pearson correlations subtracted from 1 are taken as distances between BMs. "
-                  "More details about DBSCAN you can find there: "
-                  "https://scikit-learn.org/stable/modules/clustering.html#dbscan")
+    help_text = ("DBSCAN algorithm is used for clustering. You can change the '_epsilon_' parameter of DBSCAN with "
+                 "this slider. You could consider '_epsilon_' as maximum allowed distance between the objects of the"
+                 "same cluster. Mutual Pearson correlations subtracted from 1 are taken as distances between BMs. "
+                 "More details about DBSCAN you can find there: "
+                 "https://scikit-learn.org/stable/modules/clustering.html#dbscan")
 
     selected_eps = col_slider.slider(
-        _('Number of clusters adjustment'),
+        'Number of clusters adjustment',
         min_value=0.1,
         max_value=1.0,
         value=0.3,
@@ -114,7 +122,8 @@ def load_bms(start_date: date, bm_list: Optional[List[str]] = None) -> pd.DataFr
     else:
         filter_cmd = "___"
     selected_ts = int(start_date.strftime("%s"))
-    # Всегда ресэмлпим как минимум до 1 часа
+
+    # Always resample to 1h minimum
     resample_cmd = """
         | eval hour = strftime(_time, "%Y-%m-%d %H")
         | stats max(value) as value by hour, metric
@@ -132,7 +141,6 @@ def load_bms(start_date: date, bm_list: Optional[List[str]] = None) -> pd.DataFr
 
 @st.experimental_memo(ttl=3600)
 def get_correlations(df: pd.DataFrame) -> pd.DataFrame:
-    # строим сводную таблицу для метрик, изменяющихся во времени, пропущенные значения заменяем на нули
     bm_pivot = df.pivot_table(
         index='dt',
         columns='metric_name',
@@ -141,7 +149,7 @@ def get_correlations(df: pd.DataFrame) -> pd.DataFrame:
 
     bm_pivot.fillna(bm_pivot.mean(), inplace=True)
     corr = bm_pivot.corr()
-    return corr.fillna(0)  # Если в ряду какой-то БМ мало данных, то после corr() могут остаться NaN
+    return corr.fillna(0)
 
 
 @st.experimental_memo(ttl=3600)
@@ -187,12 +195,12 @@ def get_mds(df_dist: DataFrame) -> DataFrame:
 
 
 def render_clusters_plot(df_mds: DataFrame, place: DeltaGenerator) -> None:
-    place.subheader(_("BMs projection to the plane"))
-    place.caption(_("Each point on the plane represents the business metric. Coordinates of points are calculated "
-                    "using the MDS (multidimensional scaling) algorithm. This algorithms projects objects to the "
-                    "plane keeping specified distances between objects. Mutual Pearson correlations subtracted from 1 "
-                    "are taken as distances between BMs. This scatter plot helps estimating appropriate number of "
-                    "clusters."))
+    place.subheader("BMs projection to the plane")
+    place.caption(("Each point on the plane represents the business metric. Coordinates of points are calculated "
+                   "using the MDS (multidimensional scaling) algorithm. This algorithms projects objects to the "
+                   "plane keeping specified distances between objects. Mutual Pearson correlations subtracted from 1 "
+                   "are taken as distances between BMs. This scatter plot helps estimating appropriate number of "
+                   "clusters."))
 
     chart = alt.Chart(df_mds).mark_circle().encode(
         x=alt.X("x:Q", title=None),
@@ -205,19 +213,19 @@ def render_clusters_plot(df_mds: DataFrame, place: DeltaGenerator) -> None:
 
 
 def render_cluster_table(df_clusters: pd.DataFrame, place: DeltaGenerator) -> dict:
-    place.markdown(_("#### Clusters table"))
-    place.caption(_("In this table You can find business metrics grouped by clusters. Click on the row to show charts "
-                  "of all BMs of the cluster, as well as to specify setting for BM aggregation."))
+    place.markdown("#### Clusters table")
+    place.caption(("In this table You can find business metrics grouped by clusters. Click on the row to show charts "
+                   "of all BMs of the cluster, as well as to specify setting for BM aggregation."))
 
     df_clusters["agg_type"] = df_clusters["label"].apply(lambda x: st.session_state["actions"][x].func.value)
     df_clusters["agg_name"] = df_clusters["label"].apply(lambda x: st.session_state["actions"][x].new_name)
     df_clusters["metric_name"] = df_clusters["metric_name"].apply(lambda x: "; ".join(x))
 
     formatter = {
-        "label": (_("Cluster"), {"pinned": "left", "width": "10"}),
-        "agg_type": (_("Action"), {}),
-        "agg_name": (_("New name"), {}),
-        "metric_name": (_("BMs"), {}),
+        "label": ("Cluster", {"pinned": "left", "width": "10"}),
+        "agg_type": ("Action", {}),
+        "agg_name": ("New name", {}),
+        "metric_name": ("BMs", {}),
     }
 
     with place:
@@ -230,11 +238,11 @@ def render_cluster_table(df_clusters: pd.DataFrame, place: DeltaGenerator) -> di
 
 
 def render_cluster_chart(df_bm: pd.DataFrame, place: DeltaGenerator) -> None:
-    place.subheader(_("Cluster BMs"))
+    place.subheader("Cluster BMs")
 
     selected_cluster_row = st.session_state["selected_cluster_row"]
     if not selected_cluster_row:
-        place.info(_("Select a cluster for chart investigation"))
+        place.info("Select a cluster for chart investigation")
         return
 
     cluster_label = selected_cluster_row["label"]
@@ -243,7 +251,7 @@ def render_cluster_chart(df_bm: pd.DataFrame, place: DeltaGenerator) -> None:
     resampled_df = filtered_df.groupby("metric_name").resample("1D")["value"].max()
     resampled_df = resampled_df.reset_index().rename({"dt": "_time", "metric_name": "variable"}, axis=1)
 
-    place.markdown("**{} {}**".format(_("Cluster"), cluster_label))
+    place.markdown("**{} {}**".format("Cluster", cluster_label))
     chart = create_multiline_chart(resampled_df, one_line_one_row=False, height=250, width=550, points=False,
                                    color_scheme="category20b")
     place.altair_chart(chart)
@@ -254,8 +262,8 @@ def render_transformer_settings(place: DeltaGenerator) -> None:
     if not selected_cluster_row:
         return
 
-    place.subheader(_('Aggregation'))
-    place.caption(_("Specify aggregation settings for BMs of the selected cluster"))
+    place.subheader('Aggregation')
+    place.caption("Specify aggregation settings for BMs of the selected cluster")
     selected_cluster = selected_cluster_row["label"]
     selected_metrics = selected_cluster_row["metric_name"]
     selected_cluster_transform: ClusterTransform = st.session_state["actions"][selected_cluster]
@@ -265,7 +273,7 @@ def render_transformer_settings(place: DeltaGenerator) -> None:
     default_new_name = selected_cluster_transform.new_name
 
     func = place.selectbox(
-        label="{} {}".format(_("Action for cluster"), selected_cluster),
+        label="{} {}".format("Action for cluster", selected_cluster),
         options=funcs,
         index=default_ix,
         disabled=selected_cluster == -1,
@@ -273,10 +281,10 @@ def render_transformer_settings(place: DeltaGenerator) -> None:
         key=f"selected_action_{selected_cluster}",
     )
     if func in [ClusterTransformAction.SUM, ClusterTransformAction.MEAN]:
-        new_name = place.text_input(_("New metric name"), value=f"{default_new_name}",
+        new_name = place.text_input("New metric name", value=f"{default_new_name}",
                                     key=f"selected_new_name_{selected_cluster}")
     elif func == ClusterTransformAction.ONE:
-        new_name = place.selectbox(_("Select a metric"), options=selected_metrics.split("; "),
+        new_name = place.selectbox("Select a metric", options=selected_metrics.split("; "),
                                    key=f"selected_metric_{selected_cluster}")
     else:
         new_name = ""
@@ -314,19 +322,19 @@ def transform_bm(df_bm: DataFrame, df_clusters: DataFrame) -> DataFrame:
 
 
 def persist(
-    df: DataFrame,
-    level: StorageLevel = StorageLevel.SESSION_STATE,
-    path: str = "./storage/preprocessing/bm_selected.csv"
+        df: DataFrame,
+        level: StorageLevel = StorageLevel.SESSION_STATE,
+        path: str = "./storage/preprocessing/bm_selected.csv"
 ) -> None:
     if level == StorageLevel.DISK:
         try:
             df.to_csv(path)
-            st.success(_("Preprocessed business metrics successfully saved"))
+            st.success("Preprocessed business metrics successfully saved")
         except Exception as e:
             st.error(f"Failed to save prepprocessed dataframe: {e}")
     elif level == StorageLevel.SESSION_STATE:
         st.session_state["preprocessing"]["bm"] = df
-        st.success(_("Preprocessed business metrics successfully saved"))
+        st.success("Preprocessed business metrics successfully saved")
     else:
         return
 
@@ -334,7 +342,7 @@ def persist(
 def render_transformed(df: DataFrame, col_num: int = 3) -> None:
     resampled_df = df.groupby("metric_name").resample("1D")["value"].max().reset_index()
 
-    st.subheader(_("Transformed business metrics"))
+    st.subheader("Transformed business metrics")
     chart = alt.Chart(resampled_df).mark_line().encode(
         x=alt.X("dt:T", title=None),
         y=alt.Y("value:Q", title=None),
@@ -361,8 +369,7 @@ def render_transformed(df: DataFrame, col_num: int = 3) -> None:
 
 
 def app():
-    from pages.localization import _
-    st.header(_("Business metrics preprocessing"))
+    st.header("Business metrics preprocessing")
 
     set_session_state()
     show_caption()
@@ -370,7 +377,7 @@ def app():
     data_opts: DataOptions = get_options()
 
     btn_start_clustering = st.button(
-        _("Make clustering"),
+        "Make clustering",
         on_click=set_btn_clicked, kwargs={"btn_name": "btn_start_clustering"}
     )
 
@@ -400,7 +407,7 @@ def app():
     render_cluster_chart(df_bm, col_cluster_chart)
     render_transformer_settings(col_transformers)
 
-    btn_do_transformations = st.button(_("Aggregate and save"))
+    btn_do_transformations = st.button("Aggregate and save")
 
     if btn_do_transformations:
         df_transformed = transform_bm(df_bm, cluster_table["data"])

@@ -1,3 +1,10 @@
+"""
+Helper for drawing multi-axis Altair charts within Streamlit application.
+You can attach any number of lines to axis and combine multiple axis into a chart.
+For each axis you can specify line options: captions, annotations, interpolation, captions' precision, ticks, etc...
+"""
+
+
 import itertools
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Union
