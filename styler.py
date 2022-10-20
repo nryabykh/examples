@@ -5,6 +5,29 @@ Some styling functions for using in AgGrid table within Streamlit application:
 - round values;
 - highlight cells which meet specified condition;
 - adjust table options: selection, height, theme, etc.
+
+Usage:
+
+from styler import draw_grid, PRECISION_ZERO, PRECISION_ONE
+
+gzu_detail_cols_formatter = {
+    "__well_num": ("Скв.", {"pinned": "left"}),
+    "pump_model": ("ЭЦН", {}),
+    "adku_debit": ("Qж", PRECISION_ZERO),
+    "shtr_debit": ("Qреж", PRECISION_ZERO),
+    "vfm_prediction": ("Qпрогн", PRECISION_ONE),
+    "q_diff": ("Qоткл", PRECISION_ONE),
+    "water": ("Обв", PRECISION_ZERO),
+    "p_input": ("Прием", PRECISION_ONE),
+    "p_head": ("Устье", PRECISION_ONE),
+    "p_zaboy_hdin": ("Забой", PRECISION_ONE),
+}
+
+data = draw_grid(
+    df_gzu,
+    formatter=gzu_cols_formatter,
+    selection='single',
+    theme="light")
 """
 
 

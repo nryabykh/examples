@@ -2,6 +2,23 @@
 Helper for drawing multi-axis Altair charts within Streamlit application.
 You can attach any number of lines to axis and combine multiple axis into a chart.
 For each axis you can specify line options: captions, annotations, interpolation, captions' precision, ticks, etc...
+
+Usage:
+
+from superchart import Axis, SuperChart
+
+df = pd.DataFrame()  # required cols: _time, variable, value. _time must be in epoch time.
+
+ax_q = Axis(
+    name="Axis name",
+    var_list=["pressure", "volume"],  # line names (values from 'variable' col)
+    captions_interval=1,
+    precision=1,
+    time_format="%d/%m",
+    tick_count="day"
+)
+
+SuperChart(df, [ax_q], caption_color="#ffffff").create(inplace=True)
 """
 
 
