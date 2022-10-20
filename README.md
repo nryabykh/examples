@@ -2,7 +2,7 @@
 
 There're some code examples related to recent projects.
 
-* bm_combine.py - simple time series clustering based on Pearson correlation.
+* bm_combine.py - simple time series clustering based on Pearson correlation. Some imports related to data collection are failed. I'm gonna fix this soon. 
 * superchart.py - helper functions and classes for drawing multi-axis Altair charts within Streamlit application.
 * styler.py - some styling functions for AgGrid table within Streamlit application.
 * Dockerfile - example of docker-file of Streamlit application.
