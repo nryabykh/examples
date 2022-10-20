@@ -1,0 +1,5 @@
+streamlit
+altair
+pandas
+scikit-learn
+streamlit-aggrid
