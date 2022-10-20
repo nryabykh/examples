@@ -7,7 +7,7 @@ Usage:
 
 from superchart import Axis, SuperChart
 
-df = pd.DataFrame()  # required cols: _time, variable, value. _time must be in epoch time.
+df = pd.DataFrame()  # required cols: dt, variable, value. dt must be in datetime.
 
 ax_q = Axis(
     name="Axis name",
